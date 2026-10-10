@@ -1,0 +1,108 @@
+# Rendu vidéo Remotion sur GitHub Actions (dépôt PUBLIC = minutes gratuites illimitées)
+# D'après la doc officielle : https://www.remotion.dev/docs/ssr#render-using-github-actions
+#
+# Usage : Actions → « Render video » → Run workflow → télécharger l'artefact produit.
+name: Render video
+
+on:
+  # Déclenchement manuel depuis l'onglet Actions de GitHub (voie principale).
+  workflow_dispatch:
+    inputs:
+      composition-id:
+        description: 'Identifiant de la composition à rendre (ex: Demo)'
+        required: false
+        default: 'Demo'
+        type: string
+      output:
+        description: 'Fichier de sortie relatif à la racine du dépôt (ex: video.mp4)'
+        required: false
+        default: 'video.mp4'
+        type: string
+      props:
+        description: 'Props JSON optionnelles, ex: {"title":"Bonjour"} — laisser vide sinon'
+        required: false
+        default: ''
+        type: string
+      frames:
+        description: 'Plage de frames optionnelle, ex: 0-49 (laisser vide = toutes les frames)'
+        required: false
+        default: ''
+        type: string
+
+  # Déclenchement optionnel au push : supprimer le "#" des 4 lignes ci-dessous pour
+  # rendre automatiquement à chaque modification de src/**.
+  # NB : avec ce déclencheur, les inputs prennent leurs valeurs par défaut (Demo/video.mp4).
+  # push:
+  #   branches: [ main, master ]
+  #   paths:
+  #     - 'src/**'
+  #     - 'package.json'
+  #     - 'remotion.config.ts'
+
+jobs:
+  render:
+    name: Render video
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Télécharge le Chrome Headless Shell nécessaire au rendu (équivalent du
+      # téléchargement automatique fait au premier rendu en local).
+      - name: Ensure headless browser
+        run: npx remotion browser ensure
+
+      # Écrit les props JSON uniquement si l'utilisateur en a fourni.
+      - name: Prepare input props
+        if: ${{ (inputs.props || '') != '' }}
+        env:
+          PROPS_JSON: ${{ inputs.props || '' }}
+        run: printf '%s' "$PROPS_JSON" > input-props.json
+
+      - name: Render composition
+        env:
+          COMPOSITION: ${{ inputs['composition-id'] || 'Demo' }}
+          OUTPUT: ${{ inputs.output || 'video.mp4' }}
+          FRAMES: ${{ inputs.frames || '' }}
+          PROPS: ${{ inputs.props || '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$OUTPUT")"
+          args=("$COMPOSITION" "$OUTPUT")
+          if [ -n "$PROPS" ]; then
+            args+=(--props ./input-props.json)
+          fi
+          if [ -n "$FRAMES" ]; then
+            args+=(--frames "$FRAMES")
+          fi
+          echo "npx remotion render ${args[*]}"
+          npx remotion render "${args[@]}"
+
+      # L'input utilisateur passe par une variable d'environnement, JAMAIS en
+      # interpolation `${{ }}` dans le corps du script (injection de script).
+      - name: Report produced file
+        env:
+          OUTPUT: ${{ inputs.output || 'video.mp4' }}
+        run: |
+          set -euo pipefail
+          ls -lh "$OUTPUT"
+          echo "Taille : $(stat -c '%s' "$OUTPUT") octets"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # Le nom d'artefact ne doit contenir ni "/" ni caractères interdits.
+          name: rendered-video
+          path: ${{ inputs.output || 'video.mp4' }}
+          if-no-files-found: error
+          retention-days: 14

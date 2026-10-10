@@ -1,0 +1,25 @@
+{
+  "name": "remotion-local",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Projet Remotion local - rendu de videos pilotable par IA",
+  "scripts": {
+    "studio": "remotion studio",
+    "render:demo": "remotion render Demo out/demo.mp4",
+    "still": "remotion still Demo out/still-test.png",
+    "render": "remotion render",
+    "versions": "remotion versions",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.534",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.534"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}
