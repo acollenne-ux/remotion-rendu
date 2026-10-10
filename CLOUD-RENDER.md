@@ -13,7 +13,15 @@ Un dépôt **privé** retombe sur le quota gratuit mensuel (2 000 min/mois) → 
 > Vérifiez sur github.com : `Settings → General → Visibility` → `Public`.
 > Depuis un terminal : `gh repo edit --visibility public`.
 
+**Dépôt réel du projet** : <https://github.com/acollenne-ux/remotion-rendu> — créé le 2026-10-11,
+visibilité **PUBLIC** vérifiée par `gh repo view --json visibility` → `"visibility":"PUBLIC"`.
+
 ## 2. Premier envoi du projet
+
+**Déjà réalisé (2026-10-11)** : dépôt local initialisé sur `main`, remote `origin` =
+`https://github.com/acollenne-ux/remotion-rendu.git`, commit initial
+`b7ea42d55782937d06ae1fb981878dbd6471442c` (13 fichiers) poussé. La procédure ci-dessous
+reste valable pour un nouveau projet ou un re-partage :
 
 ```bash
 cd /home/alexandre-collenne/remotion
@@ -39,8 +47,49 @@ Puis exécutez les commandes qu'il affiche (`git init` si besoin, `git add …`,
 4. Quand le job est vert, ouvrez-le → section **Artifacts** → **Télécharger** le zip
    `rendered-video` (conservé 14 jours) contenant votre fichier.
 
+**Équivalent en ligne de commande** (après `gh auth login`, commandes réellement utilisées
+pour le test du 2026-10-11, tout est poussé sur `main`) :
+
+```bash
+cd /home/alexandre-collenne/remotion
+# 1. déclencher un rendu :
+gh workflow run render-video.yml -f composition-id=Demo -f output=video-test.mp4
+# 2. récupérer l'identifiant du run fraîchement créé (1re ligne de la liste) :
+gh run list --workflow=render-video.yml --limit 1 --json databaseId -q '.[0].databaseId'
+# 3. suivre jusqu'au bout (l'identifiant du test réel était 38091567124) :
+gh run watch 38091567124 --exit-status --interval 15
+# 4. télécharger l'artefact puis vérifier le MP4 :
+gh run download 38091567124 -n rendered-video -D out/
+file out/video-test.mp4 && stat -c '%s octets' out/video-test.mp4
+```
+
 Un rendu automatique au push sur `src/**` est possible : décommentez le bloc `push:`
 commenté en tête de `render-video.yml`.
+
+## 3 bis. Test réel effectué (2026-10-11) — preuve de bout en bout
+
+Exécution menée avec le compte `acollenne-ux`, dépôt PUBLIC, sans aucun coût :
+
+| Élément | Valeur mesurée |
+|---|---|
+| Date | 2026-10-11 00:28:46 → 00:29:33 (UTC+2) |
+| Commande de déclenchement exacte | `gh workflow run render-video.yml -f composition-id=Demo -f output=video-test.mp4` |
+| Run ID | `38091567124` — <https://github.com/acollenne-ux/remotion-rendu/actions/runs/38091567124> |
+| Statut | `completed` / **`success`** (job « Render video » : succès) |
+| Durée totale du run | **47 s** |
+| Étapes | Checkout ✓ · Setup Node 22 ✓ · `npm ci` ✓ · `browser ensure` ✓ · Render ✓ · Report ✓ · Upload ✓ |
+| Artefact | `rendered-video`, 313 159 o zippé, rétention 14 j, non expiré |
+| Commande de téléchargement | `gh run download 38091567124 -n rendered-video -D out/` |
+| Fichier produit | `out/video-test.mp4` |
+| `file` | `ISO Media, MP4 Base Media v1 [ISO 14496-12:2003]` |
+| Taille | **321 713 octets (315 Ko)** — seuil 50 Ko franchi |
+| Contenu vérifié (`ffprobe`) | H.264, 1920×1080, 30 i/s, durée 5,000 s |
+| sha256 | `8a6465e85e3a4b902936299874e120132307dda618f6ed3c87ff7e0961eaffc7` |
+
+Anomalie non bloquante observée : deux annotations GitHub Actions sur ce run — dépréciation
+de `Node.js 20` pour `actions/checkout@v4`, `setup-node@v4` et `upload-artifact@v4`, et migration
+annoncée d'`ubuntu-latest` vers Ubuntu 26 le 19/10/2026. À réévaluer lors des prochaines mises à
+jour des `actions/*`.
 
 ## 4. Fallback n°1 : rendu local (déjà fonctionnel)
 
